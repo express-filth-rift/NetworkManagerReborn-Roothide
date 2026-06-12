@@ -18,12 +18,12 @@ static NSString *_Nonnull rootlessPath(NSString* _Nonnull path) {
 @interface CCNetworkManager : CCUIToggleModule
 @end
 
-static BOOL getBool(NSString *key);
-static NSString* getValue(NSString *key);
+static BOOL getBool(NSString * _Nonnull key);
+static NSString* _Nullable getValue(NSString * _Nonnull key);
 static void writeSelectedNetwork();
 
-static NSString *getNextEnabledNetwork();
-static void sendSimpleAlert(NSString *title, NSString *content);
+static NSString * _Nonnull getNextEnabledNetwork();
+static void sendSimpleAlert(NSString * _Nonnull title, NSString * _Nonnull content);
 
 typedef void* CTServerConnectionRef;
 
