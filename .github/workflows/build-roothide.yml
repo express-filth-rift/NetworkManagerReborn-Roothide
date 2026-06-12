@@ -15,22 +15,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          submodules: true
       
-      - name: Check cache
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app
+      
+      - name: Install packaging tools
         run: |
-          echo upstream_heads=`git ls-remote https://github.com/theos/theos | head -n 1 | cut -f 1`-`git ls-remote https://github.com/theos/sdks | head -n 1 | cut -f 1` >> $GITHUB_ENV
+          brew install make ldid
       
-      - name: Use cache
-        id: cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ github.workspace }}/theos
-          key: ${{ runner.os }}-${{ env.upstream_heads }}
+      - name: Install roothide Theos
+        run: |
+          git clone --recursive https://github.com/roothide/theos.git $HOME/theos
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
       
-      - name: Prepare Theos
-        uses: Randomblock1/theos-action@v1
+      - name: Install iOS SDK
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks.git /tmp/theos-sdks
+          git -C /tmp/theos-sdks sparse-checkout set iPhoneOS16.5.sdk
+          mkdir -p $HOME/theos/sdks
+          cp -R /tmp/theos-sdks/iPhoneOS16.5.sdk $HOME/theos/sdks/
       
       - name: Install CCSupport
         run: |
@@ -38,12 +41,14 @@ jobs:
           cd $HOME/CCSupportTemplates/
           chmod +x install.sh
           ./install.sh
-          echo "Should be done installing CCSupport"
       
-      - name: Build package (roothide)
+      - name: Build package
         run: |
-          rm -f packages/*
-          make package FINALPACKAGE=1 SYSROOT=$THEOS/sdks/iPhoneOS16.5.sdk THEOS_PACKAGE_SCHEME=roothide
+          export PATH="/opt/homebrew/opt/make/libexec/gnubin:$HOME/theos/bin:$PATH"
+          export THEOS_PACKAGE_SCHEME=roothide
+          export FINALPACKAGE=1
+          make clean
+          make package
       
       - name: Upload package
         uses: actions/upload-artifact@v4
