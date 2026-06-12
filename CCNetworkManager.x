@@ -83,16 +83,22 @@ NSTimeInterval lastTapTime = 0; // For double-tap detection
     
     // Load the saved network for this slot
     NSString *slotKey = [NSString stringWithFormat:@"selectedNetwork_slot%d", currentSlot];
-    selectedNetwork = [[prefs objectForKey:slotKey] ?: @"disabled" stringValue];
+    selectedNetwork = [prefs objectForKey:slotKey] ?: @"disabled";
     
     // Apply the network setting for the new slot
     CFStringRef kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:selectedNetwork];
     
     // Safety check: ensure kValue is valid before calling CoreTelephony
     if (kValue == NULL) {
-      // Invalid selectedNetwork, use automatic mode
+      // Invalid selectedNetwork, fallback to automatic mode
       selectedNetwork = @"disabled";
-      kValue = kAutomatic;
+      kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:@"disabled"];
+      
+      // Double check: if still NULL, abort to prevent crash
+      if (kValue == NULL) {
+        [super reconfigureView];
+        return;
+      }
     }
     
     CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
@@ -111,9 +117,15 @@ NSTimeInterval lastTapTime = 0; // For double-tap detection
     
     // Safety check: ensure kValue is valid before calling CoreTelephony
     if (kValue == NULL) {
-      // Invalid selectedNetwork, use automatic mode
+      // Invalid selectedNetwork, fallback to automatic mode
       selectedNetwork = @"disabled";
-      kValue = kAutomatic;
+      kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:@"disabled"];
+      
+      // Double check: if still NULL, abort to prevent crash
+      if (kValue == NULL) {
+        [super reconfigureView];
+        return;
+      }
     }
     
     CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
@@ -229,7 +241,7 @@ static void loadPrefs() {
   
   // Load network setting for current slot
   NSString *slotKey = [NSString stringWithFormat:@"selectedNetwork_slot%d", currentSlot];
-  selectedNetwork = [[prefs objectForKey:slotKey] ?: [defaultPrefs objectForKey:@"selectedNetwork"] stringValue];
+  selectedNetwork = [prefs objectForKey:slotKey] ?: ([defaultPrefs objectForKey:@"selectedNetwork"] ?: @"disabled");
 }
 
 static void initPrefs() {
