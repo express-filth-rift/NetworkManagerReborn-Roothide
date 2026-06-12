@@ -146,7 +146,7 @@ static void loadPrefs() {
   if (!prefs) {
     prefs = [NSMutableDictionary dictionary];
   }
-  selectedNetwork = [[prefs objectForKey:@"selectedNetwork"]?: [defaultPrefs objectForKey:@"selectedNetwork"] stringValue];
+  selectedNetwork = [prefs objectForKey:@"selectedNetwork"] ?: [defaultPrefs objectForKey:@"selectedNetwork"];
 }
 
 static void initPrefs() {
