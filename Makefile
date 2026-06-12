@@ -18,6 +18,9 @@ ifeq ($(THEOS_PACKAGE_SCHEME),roothide)
 NetworkManager_LDFLAGS += -lroothide
 endif
 
+# Allow undefined symbols (will be resolved at runtime)
+NetworkManager_LDFLAGS += -Wl,-undefined,dynamic_lookup
+
 after-install::
 	install.exec "killall -9 SpringBoard"
 
