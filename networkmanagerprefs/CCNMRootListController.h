@@ -1,6 +1,12 @@
 #import <Preferences/PSListController.h>
 #import <Preferences/PSSpecifier.h>
 
+#if __has_include(<roothide.h>)
+#import <roothide.h>
+#else
+#define jbroot(path) (@path)
+#endif
+
 @interface CCNMRootListController : PSListController
 - (void)showHelpAlert:(PSSpecifier *)specifier;
 @end
