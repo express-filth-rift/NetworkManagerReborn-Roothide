@@ -1,8 +1,19 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
-#import <rootless.h>
+#if __has_include(<roothide.h>)
+#import <roothide.h>
+#else
+#define jbroot(path) (path)
+#endif
 
 #import <ControlCenterUIKit/CCUIToggleModule.h>
+
+static NSString *_Nonnull rootlessPath(NSString* _Nonnull path) __attribute__((unused));
+static NSString *_Nonnull rootlessPath(NSString* _Nonnull path) {
+  return jbroot(path);
+}
+
+#define ROOT_PATH_NS(path) rootlessPath(@path)
 
 @interface CCNetworkManager : CCUIToggleModule
 @end
