@@ -26,6 +26,9 @@
     UIBarButtonItem *applyButton = [[UIBarButtonItem alloc] initWithTitle:@"Save" style:UIBarButtonItemStylePlain target:self action:@selector(save)];
     self.navigationItem.rightBarButtonItem = applyButton;
 
+    // Force reload all preference values from disk
+    [self reloadSpecifiers];
+
     // As of the latest Dopamine version, an oldabi check should no longer be required as it's implemented into Dopamine now.
 }
 
