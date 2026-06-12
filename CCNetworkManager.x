@@ -87,6 +87,14 @@ NSTimeInterval lastTapTime = 0; // For double-tap detection
     
     // Apply the network setting for the new slot
     CFStringRef kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:selectedNetwork];
+    
+    // Safety check: ensure kValue is valid before calling CoreTelephony
+    if (kValue == NULL) {
+      // Invalid selectedNetwork, use automatic mode
+      selectedNetwork = @"disabled";
+      kValue = kAutomatic;
+    }
+    
     CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
     _CTServerConnectionSetRATSelection(cn, kValue, (void *)(long)currentSlot);
     
@@ -100,6 +108,14 @@ NSTimeInterval lastTapTime = 0; // For double-tap detection
     selectedNetwork = getNextEnabledNetwork();
 
     CFStringRef kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:selectedNetwork];
+    
+    // Safety check: ensure kValue is valid before calling CoreTelephony
+    if (kValue == NULL) {
+      // Invalid selectedNetwork, use automatic mode
+      selectedNetwork = @"disabled";
+      kValue = kAutomatic;
+    }
+    
     CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
     _CTServerConnectionSetRATSelection(cn, kValue, (void *)(long)currentSlot);
 
