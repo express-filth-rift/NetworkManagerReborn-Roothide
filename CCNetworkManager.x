@@ -7,6 +7,8 @@ NSMutableDictionary *ratSelectionValues, *labelSelectionValues;
 NSMutableArray* selectionKeys;
 
 NSString *selectedNetwork;
+int currentSlot = 0; // 0 = SIM1, 1 = SIM2
+NSTimeInterval lastTapTime = 0; // For double-tap detection
 
 @implementation CCNetworkManager
 
@@ -20,8 +22,11 @@ NSString *selectedNetwork;
   label.clipsToBounds = YES;
   label.textAlignment = NSTextAlignmentCenter;
 
+  // Slot indicator (circled number)
+  NSString *slotIndicator = currentSlot == 0 ? @"①" : @"②";
+
   if ([selectedNetwork isEqual:@"disabled"]) {
-    label.font = [label.font fontWithSize:12];
+    label.font = [label.font fontWithSize:11];
 
     NSString *customText =
         getValue(@"customText") ? getValue(@"customText") : @"";
@@ -35,17 +40,19 @@ NSString *selectedNetwork;
       } else {
         label.numberOfLines = 1;
       }
-      label.text = customText;
+      label.text = [NSString stringWithFormat:@"%@%@", customText, slotIndicator];
     } else {
       label.numberOfLines = 2;
-      label.text = @"Auto\nNetwork";
+      label.text = [NSString stringWithFormat:@"Auto\nNet%@", slotIndicator];
     }
 
   } else {
-    label.font = [label.font fontWithSize:15];
+    label.font = [label.font fontWithSize:14];
     label.numberOfLines = 1;
 
-    label.text = [labelSelectionValues objectForKey:selectedNetwork];
+    label.text = [NSString stringWithFormat:@"%@%@", 
+                  [labelSelectionValues objectForKey:selectedNetwork],
+                  slotIndicator];
   }
 
   UIGraphicsBeginImageContextWithOptions(label.bounds.size, NO, 0.0); // high res
@@ -65,13 +72,43 @@ NSString *selectedNetwork;
 }
 
 - (void)setSelected:(BOOL)selected {
-  selectedNetwork = getNextEnabledNetwork();
+  NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
+  
+  // Double-tap detection (0.3 second window)
+  if (now - lastTapTime < 0.3) {
+    // Double tap: switch slot
+    currentSlot = (currentSlot == 0) ? 1 : 0;
+    
+    // Load the saved network for this slot
+    NSString *slotKey = [NSString stringWithFormat:@"selectedNetwork_slot%d", currentSlot];
+    selectedNetwork = [[prefs objectForKey:slotKey] ?: @"disabled" stringValue];
+    
+    // Apply the network setting for the new slot
+    CFStringRef kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:selectedNetwork];
+    CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
+    _CTServerConnectionSetRATSelection(cn, kValue, (void *)(long)currentSlot);
+    
+    // Save current slot
+    [prefs setObject:@(currentSlot) forKey:@"currentSlot"];
+    [prefs writeToFile:@"/var/mobile/Library/Preferences/me.nixuge.networkmanager.plist" atomically:YES];
+    
+    lastTapTime = 0; // Reset
+  } else {
+    // Single tap: cycle through network modes
+    selectedNetwork = getNextEnabledNetwork();
 
-  CFStringRef kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:selectedNetwork];
-  CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
-  _CTServerConnectionSetRATSelection(cn, kValue, 0);
+    CFStringRef kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:selectedNetwork];
+    CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
+    _CTServerConnectionSetRATSelection(cn, kValue, (void *)(long)currentSlot);
 
-  writeSelectedNetwork();
+    // Save network setting for current slot
+    NSString *slotKey = [NSString stringWithFormat:@"selectedNetwork_slot%d", currentSlot];
+    [prefs setObject:selectedNetwork forKey:slotKey];
+    [prefs writeToFile:@"/var/mobile/Library/Preferences/me.nixuge.networkmanager.plist" atomically:YES];
+    
+    lastTapTime = now;
+  }
+  
   [super reconfigureView];
 }
 
@@ -143,7 +180,13 @@ static void loadPrefs() {
   prefs = [[NSMutableDictionary alloc]
       initWithContentsOfFile:@"/var/mobile/Library/Preferences/"
                              @"me.nixuge.networkmanager.plist"];
-  selectedNetwork = [[prefs objectForKey:@"selectedNetwork"]?: [defaultPrefs objectForKey:@"selectedNetwork"] stringValue];
+  
+  // Load current slot (default to 0)
+  currentSlot = [[prefs objectForKey:@"currentSlot"] ?: @0 intValue];
+  
+  // Load network setting for current slot
+  NSString *slotKey = [NSString stringWithFormat:@"selectedNetwork_slot%d", currentSlot];
+  selectedNetwork = [[prefs objectForKey:slotKey] ?: [defaultPrefs objectForKey:@"selectedNetwork"] stringValue];
 }
 
 static void initPrefs() {
