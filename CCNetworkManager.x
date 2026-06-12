@@ -78,14 +78,23 @@ NSString *selectedNetwork;
     return;
   }
   
-  selectedNetwork = getNextEnabledNetwork();
+  @try {
+    selectedNetwork = getNextEnabledNetwork();
 
-  CFStringRef kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:selectedNetwork];
-  CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
-  _CTServerConnectionSetRATSelection(cn, kValue, 0);
+    CFStringRef kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:selectedNetwork];
+    if (kValue) {
+      CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, NULL, NULL);
+      if (cn) {
+        _CTServerConnectionSetRATSelection(cn, kValue, 0);
+      }
+    }
 
-  writeSelectedNetwork();
-  [super reconfigureView];
+    writeSelectedNetwork();
+    [super reconfigureView];
+  }
+  @catch (NSException *exception) {
+    // Swallow exception to prevent safe mode
+  }
 }
 
 @end
@@ -225,7 +234,12 @@ static void initDataValues() {
   }
 
 %ctor {
-  initDataValues();
-  initPrefs();
-  loadPrefs();
+  @try {
+    initDataValues();
+    initPrefs();
+    loadPrefs();
+  }
+  @catch (NSException *exception) {
+    // Swallow exception to prevent safe mode
+  }
 }
