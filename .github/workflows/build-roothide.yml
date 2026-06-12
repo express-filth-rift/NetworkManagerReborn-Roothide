@@ -1,4 +1,4 @@
-name: Build NetworkManager DualSIM
+name: Build NetworkManager Roothide
 
 on:
   workflow_dispatch:
@@ -10,31 +10,27 @@ on:
 jobs:
   build-roothide:
     name: Build roothide
-    runs-on: macos-14
+    runs-on: macos-latest
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
+        with:
+          submodules: true
       
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-      
-      - name: Install packaging tools
+      - name: Check cache
         run: |
-          brew update
-          brew install dpkg ldid make libplist
+          echo upstream_heads=`git ls-remote https://github.com/theos/theos | head -n 1 | cut -f 1`-`git ls-remote https://github.com/theos/sdks | head -n 1 | cut -f 1` >> $GITHUB_ENV
       
-      - name: Install roothide Theos
-        run: |
-          git clone --recursive https://github.com/roothide/theos.git $HOME/theos
-          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+      - name: Use cache
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/theos
+          key: ${{ runner.os }}-${{ env.upstream_heads }}
       
-      - name: Install iOS SDK
-        run: |
-          git clone --depth 1 --filter=blob:none --sparse https://github.com/theos/sdks.git /tmp/theos-sdks
-          git -C /tmp/theos-sdks sparse-checkout set iPhoneOS16.5.sdk
-          mkdir -p $HOME/theos/sdks
-          cp -R /tmp/theos-sdks/iPhoneOS16.5.sdk $HOME/theos/sdks/
+      - name: Prepare Theos
+        uses: Randomblock1/theos-action@v1
       
       - name: Install CCSupport
         run: |
@@ -42,18 +38,16 @@ jobs:
           cd $HOME/CCSupportTemplates/
           chmod +x install.sh
           ./install.sh
+          echo "Should be done installing CCSupport"
       
-      - name: Build package
+      - name: Build package (roothide)
         run: |
-          export PATH="/opt/homebrew/opt/make/libexec/gnubin:$HOME/theos/bin:$PATH"
-          export THEOS_PACKAGE_SCHEME=roothide
-          export FINALPACKAGE=1
-          make clean
-          make package
+          rm -f packages/*
+          make package FINALPACKAGE=1 SYSROOT=$THEOS/sdks/iPhoneOS16.5.sdk THEOS_PACKAGE_SCHEME=roothide
       
       - name: Upload package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
-          name: networkmanager-dualsim-roothide
+          name: NetworkManagerReborn-Roothide
           path: packages/*.deb
           if-no-files-found: error
