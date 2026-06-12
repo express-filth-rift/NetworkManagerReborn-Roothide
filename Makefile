@@ -12,6 +12,7 @@ NetworkManager_INSTALL_PATH = /Library/ControlCenter/Bundles/
 
 NetworkManager_CFLAGS += "-Wno-unused-function"
 NetworkManager_CFLAGS += "-Wno-unused-variable"
+NetworkManager_LDFLAGS += -Wl,-U,_OBJC_CLASS_$$_CCUIToggleModule
 
 after-install::
 	install.exec "killall -9 SpringBoard"
