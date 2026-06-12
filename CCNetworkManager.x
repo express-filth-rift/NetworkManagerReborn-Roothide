@@ -133,7 +133,7 @@ static NSString *getValue(NSString *key) {
 static void writeSelectedNetwork() {
   [prefs setObject:selectedNetwork forKey:@"selectedNetwork"];
   [prefs writeToFile:
-             ROOT_PATH_NS(@"/User/Library/Preferences/me.nixuge.networkmanager.plist")
+             ROOT_PATH_NS(@"/var/mobile/Library/Preferences/me.nixuge.networkmanager.plist")
           atomically:YES];
 }
 
@@ -143,23 +143,27 @@ static void loadPrefs() {
   prefs = [[NSMutableDictionary alloc]
       initWithContentsOfFile:ROOT_PATH_NS(@"/var/mobile/Library/Preferences/"
                              @"me.nixuge.networkmanager.plist")];
+  if (!prefs) {
+    prefs = [NSMutableDictionary dictionary];
+  }
   selectedNetwork = [[prefs objectForKey:@"selectedNetwork"]?: [defaultPrefs objectForKey:@"selectedNetwork"] stringValue];
 }
 
 static void initPrefs() {
-  // Copy the default preferences file when the actual preference file doesn't
-  // exist
-  NSString *path =
-      ROOT_PATH_NS(@"/User/Library/Preferences/me.nixuge.networkmanager.plist");
-  NSString *pathDefault =
-      ROOT_PATH_NS(@"/Library/PreferenceBundles/NetworkManagerPrefs.bundle/defaults.plist");
-  NSFileManager *fileManager = [NSFileManager defaultManager];
-  if (![fileManager fileExistsAtPath:path]) {
-    [fileManager copyItemAtPath:pathDefault toPath:path error:nil];
-  }
-
-  defaultPrefs =
-      [[NSMutableDictionary alloc] initWithContentsOfFile:pathDefault];
+  // Initialize default values directly in code (no file dependency)
+  defaultPrefs = [@{
+    @"selectedNetwork": @"disabled",
+    @"disabled": @YES,
+    @"enable2gGSM": @YES,
+    @"enable3gGSM": @YES,
+    @"enable2gCDMA": @YES,
+    @"enable3gCDMA": @YES,
+    @"enableLTE": @YES,
+    @"enable5gNRStandAlone": @YES,
+    @"enable5gNRNonStandAlone": @YES,
+    @"enable5gNR": @YES,
+    @"customText": @""
+  } mutableCopy];
 
   CFNotificationCenterAddObserver(
       CFNotificationCenterGetDarwinNotifyCenter(), NULL,
