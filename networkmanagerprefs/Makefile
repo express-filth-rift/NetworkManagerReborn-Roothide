@@ -1,6 +1,6 @@
 include $(THEOS)/makefiles/common.mk
 
-export TARGET = iphone:clang:11.2:11.0
+export TARGET = iphone:clang:latest:11.0
 export ARCHS = arm64 arm64e
 export VERSION = $(shell grep '^Version:' ../control | cut -d: -f2- | tr -d ' ')
 
@@ -13,6 +13,11 @@ NetworkManagerPrefs_PRIVATE_FRAMEWORKS = Preferences
 NetworkManagerPrefs_CFLAGS = -fobjc-arc
 
 NetworkManagerPrefs_CFLAGS += -DNETWORK_MANAGER_VERSION=\"$(VERSION)\"
+
+# Link roothide library for roothide builds
+ifeq ($(THEOS_PACKAGE_SCHEME),roothide)
+NetworkManagerPrefs_LIBRARIES = roothide
+endif
 
 include $(THEOS_MAKE_PATH)/bundle.mk
 
