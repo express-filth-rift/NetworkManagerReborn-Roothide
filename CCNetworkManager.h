@@ -13,7 +13,7 @@ static NSString *_Nonnull rootlessPath(NSString* _Nonnull path) {
   return jbroot(path);
 }
 
-#define ROOT_PATH_NS(path) rootlessPath(@path)
+#define ROOT_PATH_NS(path) rootlessPath(path)
 
 @interface CCNetworkManager : CCUIToggleModule
 @end
