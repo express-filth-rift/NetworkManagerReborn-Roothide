@@ -24,5 +24,5 @@ after-install::
 	install.exec "killall -9 SpringBoard"
 
 include $(THEOS_MAKE_PATH)/bundle.mk
-SUBPROJECTS += networkmanagerprefs
+# SUBPROJECTS += networkmanagerprefs
 include $(THEOS_MAKE_PATH)/aggregate.mk
