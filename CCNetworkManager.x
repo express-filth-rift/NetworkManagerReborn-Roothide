@@ -22,8 +22,8 @@ NSTimeInterval lastTapTime = 0; // For double-tap detection
   label.clipsToBounds = YES;
   label.textAlignment = NSTextAlignmentCenter;
 
-  // Slot indicator (circled number)
-  NSString *slotIndicator = currentSlot == 0 ? @"①" : @"②";
+  // Slot indicator (circled number) - only show on dual SIM devices
+  NSString *slotIndicator = hasDualSIM() ? (currentSlot == 0 ? @"①" : @"②") : @"";
 
   if ([selectedNetwork isEqual:@"disabled"]) {
     label.font = [label.font fontWithSize:11];
@@ -40,19 +40,21 @@ NSTimeInterval lastTapTime = 0; // For double-tap detection
       } else {
         label.numberOfLines = 1;
       }
-      label.text = [NSString stringWithFormat:@"%@%@", customText, slotIndicator];
+      label.text = hasDualSIM() ? [NSString stringWithFormat:@"%@%@", customText, slotIndicator] : customText;
     } else {
       label.numberOfLines = 2;
-      label.text = [NSString stringWithFormat:@"Auto\nNet%@", slotIndicator];
+      label.text = hasDualSIM() ? [NSString stringWithFormat:@"Auto\nNet%@", slotIndicator] : @"Auto\nNetwork";
     }
 
   } else {
     label.font = [label.font fontWithSize:14];
     label.numberOfLines = 1;
 
-    label.text = [NSString stringWithFormat:@"%@%@", 
-                  [labelSelectionValues objectForKey:selectedNetwork],
-                  slotIndicator];
+    label.text = hasDualSIM() ? 
+                  [NSString stringWithFormat:@"%@%@", 
+                   [labelSelectionValues objectForKey:selectedNetwork],
+                   slotIndicator] :
+                  [labelSelectionValues objectForKey:selectedNetwork];
   }
 
   UIGraphicsBeginImageContextWithOptions(label.bounds.size, NO, 0.0); // high res
@@ -74,8 +76,8 @@ NSTimeInterval lastTapTime = 0; // For double-tap detection
 - (void)setSelected:(BOOL)selected {
   NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
   
-  // Double-tap detection (0.3 second window)
-  if (now - lastTapTime < 0.3) {
+  // Double-tap detection (0.3 second window) - only on dual SIM devices
+  if (hasDualSIM() && now - lastTapTime < 0.3) {
     // Double tap: switch slot
     currentSlot = (currentSlot == 0) ? 1 : 0;
     
@@ -101,7 +103,7 @@ NSTimeInterval lastTapTime = 0; // For double-tap detection
     CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
     _CTServerConnectionSetRATSelection(cn, kValue, (void *)(long)currentSlot);
 
-    // Save network setting for current slot
+    // Save network setting for current slot (or global setting on single SIM devices)
     NSString *slotKey = [NSString stringWithFormat:@"selectedNetwork_slot%d", currentSlot];
     [prefs setObject:selectedNetwork forKey:slotKey];
     [prefs writeToFile:@"/var/mobile/Library/Preferences/me.nixuge.networkmanager.plist" atomically:YES];
@@ -115,6 +117,21 @@ NSTimeInterval lastTapTime = 0; // For double-tap detection
 @end
 
 // ----- UTILS ----- //
+
+// Check if device has dual SIM
+static BOOL hasDualSIM() {
+  CTTelephonyNetworkInfo *networkInfo = [[CTTelephonyNetworkInfo alloc] init];
+  
+  // iOS 12+ uses serviceSubscriberCellularProviders dictionary
+  if (@available(iOS 12.0, *)) {
+    NSDictionary *carriers = [networkInfo serviceSubscriberCellularProviders];
+    return carriers.count >= 2;
+  } else {
+    // Fallback for older iOS (single carrier only)
+    return NO;
+  }
+}
+
 static void sendSimpleAlert(NSString *title, NSString *content) {
   UIAlertController *alertController =
       [UIAlertController alertControllerWithTitle:title

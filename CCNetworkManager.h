@@ -1,6 +1,8 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 #import <roothide.h>
+#import <CoreTelephony/CTTelephonyNetworkInfo.h>
+#import <CoreTelephony/CTCarrier.h>
 
 #import <ControlCenterUIKit/CCUIToggleModule.h>
 
@@ -10,6 +12,7 @@
 static BOOL getBool(NSString *key);
 static NSString* getValue(NSString *key);
 static void writeSelectedNetwork();
+static BOOL hasDualSIM(); // Check if device has dual SIM
 
 static NSString *getNextEnabledNetwork();
 static void sendSimpleAlert(NSString *title, NSString *content);
