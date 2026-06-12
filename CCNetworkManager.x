@@ -11,6 +11,11 @@ NSString *selectedNetwork;
 @implementation CCNetworkManager
 
 - (UIImage *)iconGlyph {
+  // Safety check: ensure initialization is complete
+  if (!selectedNetwork || !labelSelectionValues) {
+    return nil;
+  }
+  
   UILabel *label = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 70, 70)];
   label.textColor = [UIColor blackColor];
   label.backgroundColor = [UIColor clearColor];
@@ -61,10 +66,18 @@ NSString *selectedNetwork;
 }
 
 - (BOOL)isSelected {
+  if (!selectedNetwork) {
+    return NO;
+  }
   return ![selectedNetwork isEqual:@"disabled"];
 }
 
 - (void)setSelected:(BOOL)selected {
+  // Safety check: ensure initialization is complete
+  if (!ratSelectionValues || !selectionKeys) {
+    return;
+  }
+  
   selectedNetwork = getNextEnabledNetwork();
 
   CFStringRef kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:selectedNetwork];
