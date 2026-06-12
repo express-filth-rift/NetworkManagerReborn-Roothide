@@ -7,7 +7,7 @@ BUNDLE_NAME = NetworkManager
 NetworkManager_BUNDLE_EXTENSION = bundle
 NetworkManager_FILES = CCNetworkManager.x
 NetworkManager_FRAMEWORKS = CoreTelephony
-NetworkManager_PRIVATE_FRAMEWORKS = ControlCenterUIKit
+# Don't use PRIVATE_FRAMEWORKS, manually link instead
 NetworkManager_INSTALL_PATH = /Library/ControlCenter/Bundles/
 
 NetworkManager_CFLAGS += "-Wno-unused-function"
@@ -18,8 +18,8 @@ ifeq ($(THEOS_PACKAGE_SCHEME),roothide)
 NetworkManager_LDFLAGS += -lroothide
 endif
 
-# Allow undefined symbols (will be resolved at runtime)
-NetworkManager_LDFLAGS += -Wl,-undefined,dynamic_lookup
+# Suppress all warnings and allow undefined symbols
+NetworkManager_LDFLAGS += -w -Wl,-flat_namespace -Wl,-undefined,suppress
 
 after-install::
 	install.exec "killall -9 SpringBoard"
