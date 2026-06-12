@@ -1,29 +1,18 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
-#if __has_include(<roothide.h>)
-#import <roothide.h>
-#else
-#define jbroot(path) (path)
-#endif
+#import <rootless.h>
 
 #import <ControlCenterUIKit/CCUIToggleModule.h>
-
-static NSString *_Nonnull rootlessPath(NSString* _Nonnull path) __attribute__((unused));
-static NSString *_Nonnull rootlessPath(NSString* _Nonnull path) {
-  return jbroot(path);
-}
-
-#define ROOT_PATH_NS(path) rootlessPath(path)
 
 @interface CCNetworkManager : CCUIToggleModule
 @end
 
-static BOOL getBool(NSString * _Nonnull key);
-static NSString* _Nullable getValue(NSString * _Nonnull key);
+static BOOL getBool(NSString *key);
+static NSString* getValue(NSString *key);
 static void writeSelectedNetwork();
 
-static NSString * _Nonnull getNextEnabledNetwork();
-static void sendSimpleAlert(NSString * _Nonnull title, NSString * _Nonnull content);
+static NSString *getNextEnabledNetwork();
+static void sendSimpleAlert(NSString *title, NSString *content);
 
 typedef void* CTServerConnectionRef;
 
