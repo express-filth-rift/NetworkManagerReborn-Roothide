@@ -1,0 +1,53 @@
+name: Build NetworkManager Roothide
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  build-roothide:
+    name: Build roothide
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+      
+      - name: Check cache
+        run: |
+          echo upstream_heads=`git ls-remote https://github.com/theos/theos | head -n 1 | cut -f 1`-`git ls-remote https://github.com/theos/sdks | head -n 1 | cut -f 1` >> $GITHUB_ENV
+      
+      - name: Use cache
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/theos
+          key: ${{ runner.os }}-${{ env.upstream_heads }}
+      
+      - name: Prepare Theos
+        uses: Randomblock1/theos-action@v1
+      
+      - name: Install CCSupport
+        run: |
+          git clone https://github.com/opa334/CCSupportTemplates.git $HOME/CCSupportTemplates
+          cd $HOME/CCSupportTemplates/
+          chmod +x install.sh
+          ./install.sh
+          echo "Should be done installing CCSupport"
+      
+      - name: Build package (roothide)
+        run: |
+          rm -f packages/*
+          make package FINALPACKAGE=1 SYSROOT=$THEOS/sdks/iPhoneOS16.5.sdk THEOS_PACKAGE_SCHEME=roothide
+      
+      - name: Upload package
+        uses: actions/upload-artifact@v3
+        with:
+          name: NetworkManagerReborn-Roothide
+          path: packages/*.deb
+          if-no-files-found: error
