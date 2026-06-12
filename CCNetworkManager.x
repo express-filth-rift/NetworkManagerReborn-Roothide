@@ -124,8 +124,18 @@ static BOOL hasDualSIM() {
   
   // iOS 12+ uses serviceSubscriberCellularProviders dictionary
   if (@available(iOS 12.0, *)) {
-    NSDictionary *carriers = [networkInfo serviceSubscriberCellularProviders];
-    return carriers.count >= 2;
+    NSDictionary<NSString *, CTCarrier *> *carriers = [networkInfo serviceSubscriberCellularProviders];
+    
+    // Count active carriers (non-nil with carrier name or mobile country code)
+    int activeCount = 0;
+    for (CTCarrier *carrier in carriers.allValues) {
+      // Check if carrier has actual service (has carrier name or mobile country code)
+      if (carrier && (carrier.carrierName != nil || carrier.mobileCountryCode != nil)) {
+        activeCount++;
+      }
+    }
+    
+    return activeCount >= 2;
   } else {
     // Fallback for older iOS (single carrier only)
     return NO;
