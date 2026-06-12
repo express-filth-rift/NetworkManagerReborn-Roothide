@@ -13,6 +13,13 @@ NetworkManager_INSTALL_PATH = /Library/ControlCenter/Bundles/
 NetworkManager_CFLAGS += "-Wno-unused-function"
 NetworkManager_CFLAGS += "-Wno-unused-variable"
 
+# For roothide: weak link ControlCenterUIKit to avoid link-time errors
+ifeq ($(THEOS_PACKAGE_SCHEME),roothide)
+NetworkManager_LDFLAGS += -Wl,-weak_framework,ControlCenterUIKit
+else
+NetworkManager_LDFLAGS += -framework ControlCenterUIKit
+endif
+
 after-install::
 	install.exec "killall -9 SpringBoard"
 
