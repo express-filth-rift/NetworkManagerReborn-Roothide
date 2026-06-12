@@ -7,12 +7,12 @@ BUNDLE_NAME = NetworkManager
 NetworkManager_BUNDLE_EXTENSION = bundle
 NetworkManager_FILES = CCNetworkManager.x
 NetworkManager_FRAMEWORKS = CoreTelephony
-NetworkManager_PRIVATE_FRAMEWORKS = ControlCenterUIKit
+# Use weak linking instead of private framework
+NetworkManager_LDFLAGS = -weak_framework ControlCenterUIKit
 NetworkManager_INSTALL_PATH = /Library/ControlCenter/Bundles/
 
 NetworkManager_CFLAGS += "-Wno-unused-function"
 NetworkManager_CFLAGS += "-Wno-unused-variable"
-NetworkManager_LDFLAGS += -Wl,-U,_OBJC_CLASS_$$_CCUIToggleModule
 
 after-install::
 	install.exec "killall -9 SpringBoard"
