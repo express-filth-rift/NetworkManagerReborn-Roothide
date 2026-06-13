@@ -10,9 +10,8 @@ NSString *selectedNetwork;
 int currentSlot = 0; // 0 = SIM1, 1 = SIM2
 
 // Long-press detection (replaces double-tap to avoid safe mode on SIM switch)
-static NSTimer *longPressTimer;
 static BOOL longPressFiredFlag = NO;
-static const NSTimeInterval LONG_PRESS_DURATION = 0.5; // seconds
+static BOOL lpRecognizerAdded = NO;
 
 // Cached dual-SIM result to avoid repeated CTTelephonyNetworkInfo allocations in hot path
 static BOOL cachedHasDualSIM = NO;
@@ -73,36 +72,43 @@ static BOOL dualSIMCacheInitialized = NO;
   return image;
 }
 
-- (void)longPressFired {
-  if (!hasDualSIM()) return;
-  longPressFiredFlag = YES;
-  // Long press: switch SIM slot WITHOUT calling CoreTelephony (avoids safe mode)
-  currentSlot = (currentSlot == 0) ? 1 : 0;
-  NSString *slotKey = [NSString stringWithFormat:@"selectedNetwork_slot%d", currentSlot];
-  selectedNetwork = [prefs objectForKey:slotKey] ?: @"disabled";
-  [prefs setObject:@(currentSlot) forKey:@"currentSlot"];
-  [prefs writeToFile:@"/var/mobile/Library/Preferences/me.nixuge.networkmanager.plist" atomically:YES];
-  [self refreshState];
+- (instancetype)initWithFrame:(CGRect)frame {
+  self = [super initWithFrame:frame];
+  if (self) {
+    if (!lpRecognizerAdded) {
+      lpRecognizerAdded = YES;
+      static const NSTimeInterval LONG_PRESS_DURATION = 0.5; // seconds
+      // Long press: switch SIM slot (prefs only, no CoreTelephony → no safe mode)
+      UILongPressGestureRecognizer *lp = [[UILongPressGestureRecognizer alloc]
+          initWithTarget:self action:@selector(handleLongPress:)];
+      lp.minimumPressDuration = LONG_PRESS_DURATION;
+      [self addGestureRecognizer:lp];
+      // Single tap: cycle network mode (calls CoreTelephony)
+      UITapGestureRecognizer *tp = [[UITapGestureRecognizer alloc]
+          initWithTarget:self action:@selector(handleTap:)];
+      [tp requireGestureRecognizerToFail:lp];
+      [self addGestureRecognizer:tp];
+    }
+  }
+  return self;
 }
 
-- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
-  longPressFiredFlag = NO;
-  if (hasDualSIM()) {
-    longPressTimer = [NSTimer scheduledTimerWithTimeInterval:LONG_PRESS_DURATION
-                                                     target:self
-                                                   selector:@selector(longPressFired)
-                                                   userInfo:nil
-                                                    repeats:NO];
+- (void)handleLongPress:(UILongPressGestureRecognizer *)lp {
+  if (lp.state == UIGestureRecognizerStateBegan) {
+    if (!hasDualSIM()) return;
+    longPressFiredFlag = YES;
+    currentSlot = (currentSlot == 0) ? 1 : 0;
+    NSString *slotKey = [NSString stringWithFormat:@"selectedNetwork_slot%d", currentSlot];
+    selectedNetwork = [prefs objectForKey:slotKey] ?: @"disabled";
+    [prefs setObject:@(currentSlot) forKey:@"currentSlot"];
+    [prefs writeToFile:@"/var/mobile/Library/Preferences/me.nixuge.networkmanager.plist" atomically:YES];
+    [self refreshState];
   }
 }
 
-- (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event {
-  // Cancelled timer = short tap = cycle network mode
-  [longPressTimer invalidate];
-  longPressTimer = nil;
-  // Only apply network mode if long-press didn't already handle everything
-  if (!longPressFiredFlag) {
-    // Single tap: apply network mode via CoreTelephony for current slot
+- (void)handleTap:(UITapGestureRecognizer *)tp {
+  if (tp.state == UIGestureRecognizerStateEnded && !longPressFiredFlag) {
+    // Single tap: cycle network mode via CoreTelephony for current slot
     selectedNetwork = getNextEnabledNetwork();
     CFStringRef kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:selectedNetwork];
     if (kValue == NULL) {
@@ -117,12 +123,6 @@ static BOOL dualSIMCacheInitialized = NO;
     [prefs writeToFile:@"/var/mobile/Library/Preferences/me.nixuge.networkmanager.plist" atomically:YES];
     [self refreshState];
   }
-}
-
-- (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event {
-  [longPressTimer invalidate];
-  longPressTimer = nil;
-  longPressFiredFlag = NO;
 }
 
 - (UIColor *)selectedColor {
