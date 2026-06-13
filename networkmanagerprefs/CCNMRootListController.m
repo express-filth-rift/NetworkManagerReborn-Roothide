@@ -62,13 +62,25 @@
 }
 @end
 
+// Shared bundle loaded once via dispatch_once to avoid repeated -[NSBundle load] calls
+// across all social cell initializations (P3 optimization)
+static NSBundle *sharedPrefsBundle(void) {
+    static NSBundle *bundle = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+
+        bundle = [NSBundle bundleWithPath:jbroot(@"/Library/PreferenceBundles/NetworkManagerPrefs.bundle")];
+        [bundle load];
+    });
+    return bundle;
+}
+
 @implementation CCNMTelegramCell
 -(instancetype)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier specifier:(PSSpecifier *)specifier {
     self = [super initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:reuseIdentifier specifier:specifier];
 
     if(self) {
-        _bundle = [NSBundle bundleWithPath:jbroot(@"/Library/PreferenceBundles/NetworkManagerPrefs.bundle")];
-        [_bundle load];
+        _bundle = sharedPrefsBundle();
 
         // Labels
         self.textLabel.text = @"Telegram";
@@ -100,8 +112,7 @@
     self = [super initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:reuseIdentifier specifier:specifier];
 
     if(self) {
-        _bundle = [NSBundle bundleWithPath:jbroot(@"/Library/PreferenceBundles/NetworkManagerPrefs.bundle")];
-        [_bundle load];
+        _bundle = sharedPrefsBundle();
 
         // Labels
         self.textLabel.text = @"Discord";
@@ -133,8 +144,7 @@
     self = [super initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:reuseIdentifier specifier:specifier];
 
     if(self) {
-        _bundle = [NSBundle bundleWithPath:jbroot(@"/Library/PreferenceBundles/NetworkManagerPrefs.bundle")];
-        [_bundle load];
+        _bundle = sharedPrefsBundle();
 
         // Labels
         self.textLabel.text = @"Twitter";
@@ -167,8 +177,7 @@
     self = [super initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:reuseIdentifier specifier:specifier];
 
     if(self) {
-        _bundle = [NSBundle bundleWithPath:jbroot(@"/Library/PreferenceBundles/NetworkManagerPrefs.bundle")];
-        [_bundle load];
+        _bundle = sharedPrefsBundle();
 
         // Labels
         self.textLabel.text = @"Reddit";
