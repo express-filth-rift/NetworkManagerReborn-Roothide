@@ -315,7 +315,5 @@ static void initDataValues() {
 %dtor {
   CFNotificationCenterRemoveEveryObserver(
       CFNotificationCenterGetDarwinNotifyCenter(),
-      NULL,
-      CFSTR("me.nixuge.networkmanager/prefsupdated"),
       NULL);
 }
