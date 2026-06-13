@@ -72,26 +72,6 @@ static BOOL dualSIMCacheInitialized = NO;
   return image;
 }
 
-- (instancetype)initWithFrame:(CGRect)frame {
-  self = [super initWithFrame:frame];
-  if (self) {
-    if (!lpRecognizerAdded) {
-      lpRecognizerAdded = YES;
-      static const NSTimeInterval LONG_PRESS_DURATION = 0.5; // seconds
-      // Long press: switch SIM slot (prefs only, no CoreTelephony → no safe mode)
-      UILongPressGestureRecognizer *lp = [[UILongPressGestureRecognizer alloc]
-          initWithTarget:self action:@selector(handleLongPress:)];
-      lp.minimumPressDuration = LONG_PRESS_DURATION;
-      [self addGestureRecognizer:lp];
-      // Single tap: cycle network mode (calls CoreTelephony)
-      UITapGestureRecognizer *tp = [[UITapGestureRecognizer alloc]
-          initWithTarget:self action:@selector(handleTap:)];
-      [tp requireGestureRecognizerToFail:lp];
-      [self addGestureRecognizer:tp];
-    }
-  }
-  return self;
-}
 
 - (void)handleLongPress:(UILongPressGestureRecognizer *)lp {
   if (lp.state == UIGestureRecognizerStateBegan) {
@@ -132,6 +112,27 @@ static BOOL dualSIMCacheInitialized = NO;
 - (BOOL)isSelected {
   return ![selectedNetwork isEqual:@"disabled"];
 }
+- (void)setSelected:(BOOL)selected {
+  // Install gesture recognizers on self.view (CC module's managed view)
+  // CCUIToggleModule is NSObject, not UIView - add gestures to self.view
+  UIView *v = self.view;
+  if (v && !lpRecognizerAdded) {
+    lpRecognizerAdded = YES;
+    static const NSTimeInterval LONG_PRESS_DURATION = 0.5; // seconds
+    // Long press: switch SIM slot (prefs only, no CoreTelephony → no safe mode)
+    UILongPressGestureRecognizer *lp = [[UILongPressGestureRecognizer alloc]
+        initWithTarget:self action:@selector(handleLongPress:)];
+    lp.minimumPressDuration = LONG_PRESS_DURATION;
+    [v addGestureRecognizer:lp];
+    // Single tap: cycle network mode (calls CoreTelephony)
+    UITapGestureRecognizer *tp = [[UITapGestureRecognizer alloc]
+        initWithTarget:self action:@selector(handleTap:)];
+    [tp requireGestureRecognizerToFail:lp];
+    [v addGestureRecognizer:tp];
+  }
+  [super setSelected:selected];
+}
+
 @end
 
 // ----- UTILS ----- //
