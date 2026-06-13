@@ -7,6 +7,10 @@
 #import <ControlCenterUIKit/CCUIToggleModule.h>
 
 @interface CCNetworkManager : CCUIToggleModule
+// self.view is the managed UIView - declared here since CCUIToggleModule header is incomplete
+@property (nonatomic, readonly) UIView *view;
+// setSelected: is called by the CC framework on tap - declare to suppress warnings
+- (void)setSelected:(BOOL)selected;
 @end
 
 static BOOL getBool(NSString *key);
