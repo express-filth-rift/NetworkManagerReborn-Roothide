@@ -132,6 +132,7 @@ static BOOL dualSIMCacheInitialized = NO;
 - (BOOL)isSelected {
   return ![selectedNetwork isEqual:@"disabled"];
 }
+@end
 
 // ----- UTILS ----- //
 
