@@ -146,16 +146,43 @@ static BOOL hasDualSIM() {
     CTTelephonyNetworkInfo *networkInfo = [[CTTelephonyNetworkInfo alloc] init];
     BOOL hasDual = NO;
     
+    // DIAGNOSTIC PROBE: write carrier details to plist for debugging
+    NSMutableDictionary *probe = [NSMutableDictionary dictionary];
+    
     if (@available(iOS 12.0, *)) {
         NSDictionary<NSString *, CTCarrier *> *carriers = [networkInfo serviceSubscriberCellularProviders];
+        probe[@"totalCarriers"] = @(carriers.count);
+        
+        NSMutableArray *carrierDetails = [NSMutableArray array];
         int activeCount = 0;
-        for (CTCarrier *carrier in carriers.allValues) {
+        
+        for (NSString *key in carriers.allKeys) {
+            CTCarrier *carrier = carriers[key];
+            NSMutableDictionary *detail = [NSMutableDictionary dictionary];
+            detail[@"key"] = key ?: @"(null)";
+            detail[@"carrierName"] = carrier.carrierName ?: @"(nil)";
+            detail[@"mobileCountryCode"] = carrier.mobileCountryCode ?: @"(nil)";
+            detail[@"mobileNetworkCode"] = carrier.mobileNetworkCode ?: @"(nil)";
+            detail[@"isoCountryCode"] = carrier.isoCountryCode ?: @"(nil)";
+            detail[@"allowsVOIP"] = @(carrier.allowsVOIP);
+            
+            [carrierDetails addObject:detail];
+            
             if (carrier && (carrier.carrierName != nil || carrier.mobileCountryCode != nil)) {
                 activeCount++;
             }
         }
+        
+        probe[@"carriers"] = carrierDetails;
+        probe[@"activeCount"] = @(activeCount);
         hasDual = (activeCount >= 2);
     }
+    
+    probe[@"hasDualResult"] = @(hasDual);
+    
+    // Write probe to /var/mobile/Library/Preferences/
+    NSString *probePath = jbroot(@"/var/mobile/Library/Preferences/me.nixuge.networkmanager.dualsim-probe.plist");
+    [probe writeToFile:probePath atomically:YES];
     
     cachedHasDualSIM = hasDual;
     dualSIMCacheInitialized = YES;
