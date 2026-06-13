@@ -8,7 +8,11 @@ NSMutableArray* selectionKeys;
 
 NSString *selectedNetwork;
 int currentSlot = 0; // 0 = SIM1, 1 = SIM2
-NSTimeInterval lastTapTime = 0; // For double-tap detection
+
+// Long-press detection (replaces double-tap to avoid safe mode on SIM switch)
+static NSTimer *longPressTimer;
+static BOOL longPressFiredFlag = NO;
+static const NSTimeInterval LONG_PRESS_DURATION = 0.5; // seconds
 
 // Cached dual-SIM result to avoid repeated CTTelephonyNetworkInfo allocations in hot path
 static BOOL cachedHasDualSIM = NO;
@@ -69,6 +73,58 @@ static BOOL dualSIMCacheInitialized = NO;
   return image;
 }
 
+- (void)longPressFired {
+  if (!hasDualSIM()) return;
+  longPressFiredFlag = YES;
+  // Long press: switch SIM slot WITHOUT calling CoreTelephony (avoids safe mode)
+  currentSlot = (currentSlot == 0) ? 1 : 0;
+  NSString *slotKey = [NSString stringWithFormat:@"selectedNetwork_slot%d", currentSlot];
+  selectedNetwork = [prefs objectForKey:slotKey] ?: @"disabled";
+  [prefs setObject:@(currentSlot) forKey:@"currentSlot"];
+  [prefs writeToFile:@"/var/mobile/Library/Preferences/me.nixuge.networkmanager.plist" atomically:YES];
+  [self refreshState];
+}
+
+- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event {
+  longPressFiredFlag = NO;
+  if (hasDualSIM()) {
+    longPressTimer = [NSTimer scheduledTimerWithTimeInterval:LONG_PRESS_DURATION
+                                                     target:self
+                                                   selector:@selector(longPressFired)
+                                                   userInfo:nil
+                                                    repeats:NO];
+  }
+}
+
+- (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event {
+  // Cancelled timer = short tap = cycle network mode
+  [longPressTimer invalidate];
+  longPressTimer = nil;
+  // Only apply network mode if long-press didn't already handle everything
+  if (!longPressFiredFlag) {
+    // Single tap: apply network mode via CoreTelephony for current slot
+    selectedNetwork = getNextEnabledNetwork();
+    CFStringRef kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:selectedNetwork];
+    if (kValue == NULL) {
+      selectedNetwork = @"disabled";
+      kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:@"disabled"];
+      if (kValue == NULL) { [self refreshState]; return; }
+    }
+    CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
+    _CTServerConnectionSetRATSelection(cn, kValue, NULL);
+    NSString *slotKey = [NSString stringWithFormat:@"selectedNetwork_slot%d", currentSlot];
+    [prefs setObject:selectedNetwork forKey:slotKey];
+    [prefs writeToFile:@"/var/mobile/Library/Preferences/me.nixuge.networkmanager.plist" atomically:YES];
+    [self refreshState];
+  }
+}
+
+- (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event {
+  [longPressTimer invalidate];
+  longPressTimer = nil;
+  longPressFiredFlag = NO;
+}
+
 - (UIColor *)selectedColor {
   return [UIColor colorWithRed:1.00 green:0.58 blue:0.00 alpha:1.0];
 }
@@ -76,73 +132,6 @@ static BOOL dualSIMCacheInitialized = NO;
 - (BOOL)isSelected {
   return ![selectedNetwork isEqual:@"disabled"];
 }
-
-- (void)setSelected:(BOOL)selected {
-  NSTimeInterval now = [[NSDate date] timeIntervalSince1970];
-  
-  // Double-tap detection (0.3 second window) - only on dual SIM devices
-  if (hasDualSIM() && now - lastTapTime < 0.3) {
-    // Double tap: switch slot
-    currentSlot = (currentSlot == 0) ? 1 : 0;
-    
-    // Load the saved network for this slot
-    NSString *slotKey = [NSString stringWithFormat:@"selectedNetwork_slot%d", currentSlot];
-    selectedNetwork = [prefs objectForKey:slotKey] ?: @"disabled";
-    
-    // Apply the network setting for the new slot
-    // NOTE: passing slot index as third arg crashes SpringBoard on iOS 17.
-    // Using NULL mirrors the emergency fix applied in DualSIM branch commit 34e3139.
-    CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
-    CFStringRef kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:selectedNetwork];
-    if (kValue == NULL) {
-      selectedNetwork = @"disabled";
-      kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:@"disabled"];
-      if (kValue == NULL) {
-        [super reconfigureView];
-        return;
-      }
-    }
-    _CTServerConnectionSetRATSelection(cn, kValue, NULL);
-    
-    // Save current slot
-    [prefs setObject:@(currentSlot) forKey:@"currentSlot"];
-    [prefs writeToFile:@"/var/mobile/Library/Preferences/me.nixuge.networkmanager.plist" atomically:YES];
-    
-    lastTapTime = now;
-  } else {
-    // Single tap: cycle through network modes
-    selectedNetwork = getNextEnabledNetwork();
-
-    CFStringRef kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:selectedNetwork];
-    
-    // Safety check: ensure kValue is valid before calling CoreTelephony
-    if (kValue == NULL) {
-      // Invalid selectedNetwork, fallback to automatic mode
-      selectedNetwork = @"disabled";
-      kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:@"disabled"];
-      
-      // Double check: if still NULL, abort to prevent crash
-      if (kValue == NULL) {
-        [super reconfigureView];
-        return;
-      }
-    }
-    
-    CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
-    _CTServerConnectionSetRATSelection(cn, kValue, (void *)(long)currentSlot);
-
-    // Save network setting for current slot (or global setting on single SIM devices)
-    NSString *slotKey = [NSString stringWithFormat:@"selectedNetwork_slot%d", currentSlot];
-    [prefs setObject:selectedNetwork forKey:slotKey];
-    [prefs writeToFile:@"/var/mobile/Library/Preferences/me.nixuge.networkmanager.plist" atomically:YES];
-    
-    lastTapTime = now;
-  }
-  
-  [super reconfigureView];
-}
-
-@end
 
 // ----- UTILS ----- //
 
