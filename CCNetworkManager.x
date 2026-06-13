@@ -10,6 +10,10 @@ NSString *selectedNetwork;
 int currentSlot = 0; // 0 = SIM1, 1 = SIM2
 NSTimeInterval lastTapTime = 0; // For double-tap detection
 
+// Cached dual-SIM result to avoid repeated CTTelephonyNetworkInfo allocations in hot path
+static BOOL cachedHasDualSIM = NO;
+static BOOL dualSIMCacheInitialized = NO;
+
 @implementation CCNetworkManager
 
 - (UIImage *)iconGlyph {
@@ -86,29 +90,25 @@ NSTimeInterval lastTapTime = 0; // For double-tap detection
     selectedNetwork = [prefs objectForKey:slotKey] ?: @"disabled";
     
     // Apply the network setting for the new slot
+    // NOTE: passing slot index as third arg crashes SpringBoard on iOS 17.
+    // Using NULL mirrors the emergency fix applied in DualSIM branch commit 34e3139.
+    CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
     CFStringRef kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:selectedNetwork];
-    
-    // Safety check: ensure kValue is valid before calling CoreTelephony
     if (kValue == NULL) {
-      // Invalid selectedNetwork, fallback to automatic mode
       selectedNetwork = @"disabled";
       kValue = (__bridge CFStringRef)[ratSelectionValues objectForKey:@"disabled"];
-      
-      // Double check: if still NULL, abort to prevent crash
       if (kValue == NULL) {
         [super reconfigureView];
         return;
       }
     }
-    
-    CTServerConnectionRef cn = _CTServerConnectionCreate(kCFAllocatorDefault, callback, NULL);
-    _CTServerConnectionSetRATSelection(cn, kValue, (void *)(long)currentSlot);
+    _CTServerConnectionSetRATSelection(cn, kValue, NULL);
     
     // Save current slot
     [prefs setObject:@(currentSlot) forKey:@"currentSlot"];
     [prefs writeToFile:@"/var/mobile/Library/Preferences/me.nixuge.networkmanager.plist" atomically:YES];
     
-    lastTapTime = 0; // Reset
+    lastTapTime = now;
   } else {
     // Single tap: cycle through network modes
     selectedNetwork = getNextEnabledNetwork();
@@ -146,28 +146,27 @@ NSTimeInterval lastTapTime = 0; // For double-tap detection
 
 // ----- UTILS ----- //
 
-// Check if device has dual SIM
+// Check if device has dual SIM (result cached after first call to avoid repeated allocations)
 static BOOL hasDualSIM() {
-  CTTelephonyNetworkInfo *networkInfo = [[CTTelephonyNetworkInfo alloc] init];
-  
-  // iOS 12+ uses serviceSubscriberCellularProviders dictionary
-  if (@available(iOS 12.0, *)) {
-    NSDictionary<NSString *, CTCarrier *> *carriers = [networkInfo serviceSubscriberCellularProviders];
+    if (dualSIMCacheInitialized) return cachedHasDualSIM;
     
-    // Count active carriers (non-nil with carrier name or mobile country code)
-    int activeCount = 0;
-    for (CTCarrier *carrier in carriers.allValues) {
-      // Check if carrier has actual service (has carrier name or mobile country code)
-      if (carrier && (carrier.carrierName != nil || carrier.mobileCountryCode != nil)) {
-        activeCount++;
-      }
+    CTTelephonyNetworkInfo *networkInfo = [[CTTelephonyNetworkInfo alloc] init];
+    BOOL hasDual = NO;
+    
+    if (@available(iOS 12.0, *)) {
+        NSDictionary<NSString *, CTCarrier *> *carriers = [networkInfo serviceSubscriberCellularProviders];
+        int activeCount = 0;
+        for (CTCarrier *carrier in carriers.allValues) {
+            if (carrier && (carrier.carrierName != nil || carrier.mobileCountryCode != nil)) {
+                activeCount++;
+            }
+        }
+        hasDual = (activeCount >= 2);
     }
     
-    return activeCount >= 2;
-  } else {
-    // Fallback for older iOS (single carrier only)
-    return NO;
-  }
+    cachedHasDualSIM = hasDual;
+    dualSIMCacheInitialized = YES;
+    return hasDual;
 }
 
 static void sendSimpleAlert(NSString *title, NSString *content) {
@@ -190,12 +189,12 @@ static void sendSimpleAlert(NSString *title, NSString *content) {
 }
 
 static NSString *getNextEnabledNetwork() {
-    // TODO: CHECK INPUT VALUE
     NSUInteger index = [selectionKeys indexOfObject:selectedNetwork];
     NSUInteger count = [selectionKeys count];
+    NSUInteger start = (index == NSNotFound) ? 0 : index + 1;
 
     // Loop through the keys starting from the index+1 of the current network
-    for (NSUInteger i = index+1; i < count; i++) {
+    for (NSUInteger i = start; i < count; i++) {
         NSString *key = selectionKeys[i];
         BOOL isEnabled = getBool(key);
         if (isEnabled) {
@@ -309,4 +308,14 @@ static void initDataValues() {
   initDataValues();
   initPrefs();
   loadPrefs();
+  // Pre-cache dual-SIM status on init to avoid first-call overhead
+  (void)hasDualSIM();
+}
+
+%dtor {
+  CFNotificationCenterRemoveEveryObserver(
+      CFNotificationCenterGetDarwinNotifyCenter(),
+      NULL,
+      CFSTR("me.nixuge.networkmanager/prefsupdated"),
+      NULL);
 }
