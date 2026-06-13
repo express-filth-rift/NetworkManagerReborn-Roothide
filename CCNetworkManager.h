@@ -2,7 +2,7 @@
 #import <UIKit/UIKit.h>
 #import <roothide.h>
 #import <CoreTelephony/CTTelephonyNetworkInfo.h>
-#import <CoreTelephony/CTCarrier.h>
+#import <CoreTelephony/CTServiceDescriptor.h>
 
 #import <ControlCenterUIKit/CCUIToggleModule.h>
 
