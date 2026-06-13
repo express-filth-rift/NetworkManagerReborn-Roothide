@@ -137,19 +137,29 @@ static BOOL dualSIMCacheInitialized = NO;
 
 // ----- UTILS ----- //
 
-// Check if device has dual SIM (result cached after first call)
-// Uses descriptors API - returns physical slot count, more accurate than counting active carriers
+// Check if device has dual SIM (result cached after first call to avoid repeated allocations)
+// Reference: CTTelephonyNetworkInfo.descriptors approach from DevelopCubeLab/CellularInfo
+// Note: uses serviceSubscriberCellularProviders public API for build compatibility
 static BOOL hasDualSIM() {
     if (dualSIMCacheInitialized) return cachedHasDualSIM;
-
+    
     CTTelephonyNetworkInfo *networkInfo = [[CTTelephonyNetworkInfo alloc] init];
-    CTServiceDescriptorContainer *container = networkInfo.descriptors;
-    NSArray<CTServiceDescriptor *> *descriptors = container.descriptors;
-    NSInteger slotCount = descriptors.count;
-
-    cachedHasDualSIM = (slotCount >= 2);
+    BOOL hasDual = NO;
+    
+    if (@available(iOS 12.0, *)) {
+        NSDictionary<NSString *, CTCarrier *> *carriers = [networkInfo serviceSubscriberCellularProviders];
+        int activeCount = 0;
+        for (CTCarrier *carrier in carriers.allValues) {
+            if (carrier && (carrier.carrierName != nil || carrier.mobileCountryCode != nil)) {
+                activeCount++;
+            }
+        }
+        hasDual = (activeCount >= 2);
+    }
+    
+    cachedHasDualSIM = hasDual;
     dualSIMCacheInitialized = YES;
-    return cachedHasDualSIM;
+    return hasDual;
 }
 
 static void sendSimpleAlert(NSString *title, NSString *content) {

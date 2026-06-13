@@ -20,9 +20,6 @@ NetworkManager_LIBRARIES = roothide
 NetworkManager_LDFLAGS += -undefined dynamic_lookup
 endif
 
-# Private headers for CoreTelephony private APIs (classdump)
-NetworkManager_CFLAGS += -I$(THEOS_PROJECT_DIR)/PrivateHeaders
-
 after-install::
 	install.exec "killall -9 SpringBoard"
 
